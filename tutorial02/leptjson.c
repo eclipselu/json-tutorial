@@ -3,6 +3,8 @@
 #include <stdlib.h>  /* NULL, strtod() */
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
+#define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
+#define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
 
 typedef struct {
     const char* json;
@@ -44,7 +46,50 @@ static int lept_parse_null(lept_context* c, lept_value* v) {
 
 static int lept_parse_number(lept_context* c, lept_value* v) {
     char* end;
-    /* \TODO validate number */
+    lept_context cc;
+
+    /* start validation */
+    cc.json = c->json;
+    /* "-" */
+    if (*cc.json == '-')
+        cc.json++;
+
+    /* int */
+    if (*cc.json == '0') {
+        cc.json++;
+    } else if(ISDIGIT1TO9(*cc.json)) {
+        cc.json++;
+        while (ISDIGIT(*cc.json))
+            cc.json++;
+    } else {
+        return LEPT_PARSE_INVALID_VALUE;
+    }
+
+    /* frac */
+    if (*cc.json == '.') {
+        cc.json++;
+        if (ISDIGIT(*cc.json)) {
+            while (ISDIGIT(*cc.json))
+                cc.json++;
+        } else {
+            return LEPT_PARSE_INVALID_VALUE;
+        }
+    }
+
+    /* exp */
+    if (*cc.json == 'e' || *cc.json == 'E') {
+        cc.json++;
+        if (*cc.json == '+' || *cc.json == '-')
+            cc.json++;
+
+        while (ISDIGIT(*cc.json))
+            cc.json++;
+    }
+
+    if (*cc.json != '\0')
+        return LEPT_PARSE_INVALID_VALUE;
+    /* end validation */
+
     v->n = strtod(c->json, &end);
     if (c->json == end)
         return LEPT_PARSE_INVALID_VALUE;
